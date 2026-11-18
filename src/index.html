@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1b1b19" />
+    <meta
+      name="description"
+      content="Kurier Świata — interaktywne wydanie elektroniczne gazety z prawdziwymi wiadomościami z ostatnich 7 dni. Przewracaj strony, przeciągając papier."
+    />
+    <title>Kurier Świata — wydanie elektroniczne</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23b11218'/%3E%3Ctext x='32' y='45' font-family='Georgia' font-size='40' font-weight='bold' text-anchor='middle' fill='white'%3EK%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#page">Przejdź do treści gazety</a>
+
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">KŚ</span>
+          <span class="brand-copy">
+            <strong>Kurier Świata</strong>
+            <small>Wydanie elektroniczne</small>
+          </span>
+        </div>
+
+        <div class="edition" id="edition" aria-live="polite">Ładowanie wydania…</div>
+
+        <div class="top-actions">
+          <button class="action" id="search-open" type="button" aria-haspopup="dialog">
+            <span aria-hidden="true">⌕</span> Szukaj <kbd>/</kbd>
+          </button>
+          <a class="action action-accent" id="refresh-link" href="#" target="_blank" rel="noopener">
+            <span aria-hidden="true">↻</span> Świeże wydanie
+          </a>
+        </div>
+      </header>
+
+      <div class="ticker" id="ticker" aria-label="Najnowsze wiadomości">
+        <span class="ticker-label">NA ŻYWO</span>
+        <div class="ticker-track" id="ticker-track"></div>
+      </div>
+
+      <main class="stage">
+        <button class="edge-nav edge-prev" id="prev-btn" type="button" aria-label="Poprzednia strona">‹</button>
+
+        <div class="book" id="book">
+          <div class="paper-shadow" aria-hidden="true"></div>
+          <article class="page" id="page" tabindex="-1" aria-label="Strona gazety"></article>
+          <div class="curl" id="curl" aria-hidden="true"></div>
+          <div class="grab-tip" id="grab-tip" aria-hidden="true">
+            <span class="grab-icon">✋</span>
+            Chwyć papier i przeciągnij
+          </div>
+        </div>
+
+        <button class="edge-nav edge-next" id="next-btn" type="button" aria-label="Następna strona">›</button>
+      </main>
+
+      <footer class="bottombar">
+        <div class="page-nav">
+          <button class="small-btn" id="first-btn" type="button" aria-label="Pierwsza strona">«</button>
+          <button class="small-btn" id="prev-small" type="button" aria-label="Poprzednia strona">‹</button>
+          <span class="counter" id="counter">1 / 1</span>
+          <button class="small-btn" id="next-small" type="button" aria-label="Następna strona">›</button>
+          <button class="small-btn" id="last-btn" type="button" aria-label="Ostatnia strona">»</button>
+        </div>
+        <div class="pages-list" id="pages-list" aria-label="Spis stron"></div>
+        <div class="shortcuts"><kbd>←</kbd><kbd>→</kbd> strony <span>·</span> <kbd>/</kbd> szukaj</div>
+      </footer>
+
+      <p class="source-note" id="source-note"></p>
+    </div>
+
+    <div class="overlay" id="search-overlay" hidden>
+      <div class="overlay-backdrop" data-close="search"></div>
+      <section class="search-panel" role="dialog" aria-modal="true" aria-labelledby="search-title">
+        <div class="search-head">
+          <div>
+            <p class="kicker">Wyszukiwarka wydania</p>
+            <h2 id="search-title">Znajdź informację</h2>
+          </div>
+          <button class="close-btn" type="button" data-close="search" aria-label="Zamknij wyszukiwarkę">×</button>
+        </div>
+        <label class="search-field">
+          <span aria-hidden="true">⌕</span>
+          <input id="search-input" type="search" placeholder="Wpisz słowo, nazwę kraju lub źródło…" autocomplete="off" />
+        </label>
+        <div class="chips" id="search-chips"></div>
+        <div class="result-head">
+          <span id="result-count">Wpisz frazę, aby wyszukać</span>
+          <a id="web-search" href="#" target="_blank" rel="noopener">Szukaj nowych informacji w internecie ↗</a>
+        </div>
+        <div class="results" id="results"></div>
+        <p class="search-foot">Wyniki pochodzą wyłącznie z prawdziwych nagłówków zebranych w tym wydaniu.</p>
+      </section>
+    </div>
+
+    <div class="overlay" id="article-overlay" hidden>
+      <div class="overlay-backdrop" data-close="article"></div>
+      <section class="article-panel" role="dialog" aria-modal="true" aria-labelledby="article-title">
+        <button class="close-btn article-close" type="button" data-close="article" aria-label="Zamknij artykuł">×</button>
+        <div id="article-content"></div>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
