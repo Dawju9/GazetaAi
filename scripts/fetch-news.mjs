@@ -181,11 +181,48 @@ async function fetchHtml(url, cookie) {
   }
 }
 
-function openGraphImage(html) {
-  const match =
-    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-  return match ? decodeEntities(match[1]) : null;
+function extractImages(html, base) {
+  const found = [];
+  const add = (value, kind = 'photo') => {
+    if (!value) return;
+    try {
+      const url = new URL(decodeEntities(value.trim()), base).href;
+      if (/^https?:\/\//.test(url) && !found.some((item) => item.url === url)) found.push({ url, kind });
+    } catch {}
+  };
+
+  const patterns = [
+    /<meta[^>]+property=["']og:image(?::url)?["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::url)?["']/i,
+    /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["']/i,
+    /<meta[^>]+itemprop=["']image["'][^>]+content=["']([^"']+)["']/i,
+    /<link[^>]+rel=["']image_src["'][^>]+href=["']([^"']+)["']/i
+  ];
+  patterns.forEach((pattern) => add(html.match(pattern)?.[1]));
+
+  for (const match of html.matchAll(/"image"\s*:\s*("(?:[^"\\]|\\.)+"|\[[\s\S]{0,400}?\])/gi)) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      const value = Array.isArray(parsed) ? parsed[0] : parsed;
+      add(typeof value === 'string' ? value : value?.url);
+    } catch {}
+  }
+
+  for (const match of html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi)) {
+    if (/(logo|icon|sprite|pixel|avatar|blank|placeholder|tracking)/i.test(match[1])) continue;
+    add(match[1]);
+  }
+  return found;
+}
+
+function faviconUrl(article) {
+  try {
+    const host = new URL(article.sourceUrl || article.url).hostname;
+    return host ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128` : null;
+  } catch {
+    return null;
+  }
 }
 
 async function resolvePublisherUrl(article) {
@@ -228,20 +265,21 @@ async function resolvePublisherUrl(article) {
   }
 }
 
-async function downloadImage(imageUrl, article) {
+async function downloadImage(imageUrl, article, kind) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 9000);
   try {
     const response = await fetch(imageUrl, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GazetaAi/1.0)' }
+      headers: { 'User-Agent': NEWS_UA, Accept: 'image/avif,image/webp,image/apng,image/*,*/*' }
     });
     if (!response.ok) return null;
     const type = response.headers.get('content-type') || '';
+    if (!type.startsWith('image/')) return null;
     const ext = type.includes('jpeg') || type.includes('jpg') ? 'jpg' : type.includes('webp') ? 'webp' : 'png';
     const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.length < 1000 || bytes.length > 3_000_000) return null;
-    const filename = `${article.id}.${ext}`;
+    if (bytes.length < 200 || bytes.length > 3_000_000) return null;
+    const filename = `${article.id}${kind === 'logo' ? '-logo' : ''}.${ext}`;
     await writeFile(path.join(DIST_IMG, filename), bytes);
     return `assets/img/${filename}`;
   } catch {
@@ -252,25 +290,44 @@ async function downloadImage(imageUrl, article) {
 }
 
 async function enrichImages(articles, ids) {
-  const targets = articles.filter((article) => ids.has(article.id)).slice(0, 24);
+  const targets = articles.filter((article) => ids.has(article.id)).slice(0, 80);
   const queue = [...targets];
-  const workers = Array.from({ length: 3 }, async () => {
+  const workers = Array.from({ length: 4 }, async () => {
     while (queue.length) {
       const article = queue.shift();
+      let publisherHtml = null;
       const publisherUrl = await resolvePublisherUrl(article);
       if (publisherUrl) {
         article.googleUrl = article.url;
         article.url = publisherUrl;
-        const publisherHtml = await fetchHtml(publisherUrl);
-        const imageUrl = publisherHtml && openGraphImage(publisherHtml);
-        if (imageUrl) article.image = await downloadImage(imageUrl, article);
+        publisherHtml = await fetchHtml(publisherUrl);
       }
-      await sleep(300);
+
+      if (publisherHtml) {
+        for (const candidate of extractImages(publisherHtml, publisherUrl).slice(0, 3)) {
+          const local = await downloadImage(candidate.url, article, candidate.kind);
+          if (local) {
+            article.image = local;
+            article.imageKind = candidate.kind;
+            break;
+          }
+        }
+      }
+
+      if (!article.image) {
+        const fallback = faviconUrl(article);
+        const local = fallback && (await downloadImage(fallback, article, 'logo'));
+        if (local) {
+          article.image = local;
+          article.imageKind = 'logo';
+        }
+      }
+      await sleep(200);
     }
   });
   await Promise.all(workers);
   console.log(
-    `  Rozwiązano ${targets.filter((a) => a.googleUrl).length} linków wydawców, załadowano ${targets.filter((a) => a.image).length} fotografii`
+    `  Rozwiązano ${targets.filter((a) => a.googleUrl).length} adresów wydawców, pobrano ${targets.filter((a) => a.imageKind === 'photo').length} zdjęć i ${targets.filter((a) => a.imageKind === 'logo').length} miniatur`
   );
 }
 
@@ -366,13 +423,6 @@ async function main() {
       article.position = index;
     });
 
-    const frontIds = new Set(articles.slice(0, 6).map((article) => article.id));
-    const sectionIds = new Set();
-    FEEDS.forEach((feed) => {
-      articles.filter((article) => article.category === feed.id).slice(0, 2).forEach((article) => sectionIds.add(article.id));
-    });
-    await enrichImages(articles, new Set([...frontIds, ...sectionIds]));
-
     articles.sort((a, b) => b.score - a.score || a.position - b.position);
 
     const quotas = { swiat: 28, kraj: 24, biznes: 18, technologia: 14, sport: 12, kultura: 10, nauka: 9, zdrowie: 9 };
@@ -397,6 +447,13 @@ async function main() {
     }
     selected.sort((a, b) => b.score - a.score || a.position - b.position);
     const pages = buildPages(selected, FEEDS);
+
+    const imageIds = new Set();
+    pages.forEach((page) => {
+      const limit = page.kind === 'front' ? 3 : page.kind === 'section' ? 7 : 0;
+      page.articleIds.slice(0, limit).forEach((id) => imageIds.add(id));
+    });
+    await enrichImages(selected, imageIds);
 
     data = {
       meta: {

@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 const els = {
+  home: $('home-btn'),
   edition: $('edition'),
   tickerTrack: $('ticker-track'),
   page: $('page'),
@@ -67,10 +68,20 @@ function imageUrl(article) {
   return article.image ? new URL(article.image, document.baseURI).href : '';
 }
 
-function mediaHTML(article, className) {
+function noImageHTML(article) {
   const initial = esc((article.categoryName || 'KŚ').slice(0, 2).toUpperCase());
-  if (!article.image) return `<div class="${className}"><div class="no-image">${initial}</div></div>`;
-  return `<div class="${className}"><img src="${esc(imageUrl(article))}" alt="" loading="lazy" /></div>`;
+  return `<div class="no-image"><span class="no-image-mark">${initial}</span><span class="no-image-label">Ilustracja · ${esc(article.source)}</span></div>`;
+}
+
+function mediaInner(article) {
+  return article.image
+    ? `<img src="${esc(imageUrl(article))}" alt="" loading="lazy" />`
+    : noImageHTML(article);
+}
+
+function mediaHTML(article, className) {
+  const extra = article.imageKind === 'logo' ? ' is-logo' : '';
+  return `<div class="${className}${extra}">${mediaInner(article)}</div>`;
 }
 
 function relatedHTML(article) {
@@ -123,6 +134,7 @@ function briefsHTML(articles, title = 'W skrócie') {
     <ol>${articles
       .map(
         (article) => `<li class="clickable" data-article="${esc(article.id)}">
+          <span class="brief-thumb${article.imageKind === 'logo' ? ' is-logo' : ''}">${mediaInner(article)}</span>
           <span class="brief-title">${esc(article.title)}</span>
           <span class="brief-meta">${esc(article.source)} · ${timeLabel(article.publishedAt)}</span>
         </li>`
@@ -247,12 +259,11 @@ function renderPage(index) {
 
   els.page.querySelectorAll('img').forEach((img) => {
     img.addEventListener('error', () => {
-      const wrap = img.parentElement;
-      const fallback = document.createElement('div');
-      fallback.className = 'no-image';
-      fallback.textContent = 'KŚ';
-      img.replaceWith(fallback);
-      if (wrap) wrap.dataset.failed = 'true';
+      const node = img.closest('[data-article]');
+      const article = node ? state.byId.get(node.dataset.article) : null;
+      const holder = document.createElement('div');
+      holder.innerHTML = noImageHTML(article || {});
+      img.replaceWith(holder.firstElementChild);
     });
   });
 }
@@ -481,6 +492,11 @@ function buildShell() {
 }
 
 function bindEvents() {
+  els.home.addEventListener('click', () => {
+    els.page.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+    if (state.pageIndex !== 0) goTo(0);
+  });
+
   [els.prev, els.prevSmall, els.first].forEach((button) => button.addEventListener('click', () => goTo(state.pageIndex - 1)));
   [els.next, els.nextSmall, els.last].forEach((button) => button.addEventListener('click', () => goTo(state.pageIndex + 1)));
 

@@ -72,7 +72,20 @@ kbd {
   border-bottom: 1px solid #45423b;
 }
 
-.brand { display: flex; align-items: center; gap: 11px; flex-shrink: 0; }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.brand:hover .brand-mark { background: var(--red-dark); }
+.brand:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
 
 .brand-mark {
   display: grid;
@@ -426,19 +439,36 @@ kbd {
 .lead-media img { width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(22%) contrast(1.04); }
 
 .no-image {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   width: 100%;
   height: 100%;
   background:
     repeating-linear-gradient(135deg, rgba(0,0,0,.035) 0 2px, transparent 2px 8px),
     linear-gradient(140deg, #d8d0bd, #ece6d7);
   color: #6a6254;
+  text-align: center;
+}
+
+.no-image-mark {
   font-family: var(--serif);
-  font-size: 42px;
+  font-size: 1em;
   font-weight: 700;
   letter-spacing: -.05em;
+  line-height: 1;
 }
+
+.no-image-label {
+  font-family: var(--sans);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.is-logo img { object-fit: contain !important; padding: 8px; background: #e9e3d5; }
 
 .lead-photo-credit {
   position: absolute;
@@ -522,12 +552,27 @@ kbd {
 .briefs li {
   counter-increment: brief;
   display: grid;
-  grid-template-columns: 22px 1fr auto;
+  grid-template-columns: 22px 44px 1fr auto;
   gap: 8px;
-  align-items: baseline;
+  align-items: center;
   padding: 6px 0;
   border-bottom: 1px solid var(--rule);
 }
+
+.brief-thumb {
+  display: block;
+  width: 44px;
+  height: 34px;
+  overflow: hidden;
+  background: #ddd6c6;
+  font-size: 12px;
+}
+.brief-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(18%); }
+.brief-thumb.is-logo img { padding: 2px; }
+.brief-thumb .no-image { font-size: 12px; }
+.card-media .no-image-label, .brief-thumb .no-image-label { display: none; }
+.story-media .no-image { font-size: 26px; }
+.card-media .no-image { font-size: 18px; }
 .briefs li::before {
   content: counter(brief, decimal-leading-zero);
   font-family: var(--serif);
